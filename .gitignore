@@ -9,8 +9,7 @@ lerna-debug.log*
 
 .env
 public/videos-*
+!public/videos-home/
 dist/
 node_modules/
 .wrangler/
-public/videos-home/
-*.mp4
