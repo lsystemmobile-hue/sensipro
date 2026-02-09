@@ -1,0 +1,110 @@
+@import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;500;600;700;800;900&family=Rajdhani:wght@300;400;500;600;700&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 230 25% 7%;
+    --foreground: 210 40% 96%;
+
+    --card: 230 20% 10%;
+    --card-foreground: 210 40% 96%;
+
+    --popover: 230 20% 10%;
+    --popover-foreground: 210 40% 96%;
+
+    --primary: 45 100% 50%;
+    --primary-foreground: 230 25% 7%;
+
+    --secondary: 230 20% 16%;
+    --secondary-foreground: 210 40% 96%;
+
+    --muted: 230 15% 18%;
+    --muted-foreground: 215 15% 55%;
+
+    --accent: 270 80% 60%;
+    --accent-foreground: 210 40% 98%;
+
+    --destructive: 0 72% 51%;
+    --destructive-foreground: 210 40% 98%;
+
+    --border: 230 15% 20%;
+    --input: 230 15% 20%;
+    --ring: 45 100% 50%;
+
+    --radius: 0.75rem;
+
+    --neon-yellow: 45 100% 50%;
+    --neon-purple: 270 80% 60%;
+    --neon-blue: 200 90% 55%;
+    --neon-orange: 25 95% 55%;
+
+    --sidebar-background: 230 20% 10%;
+    --sidebar-foreground: 210 40% 96%;
+    --sidebar-primary: 45 100% 50%;
+    --sidebar-primary-foreground: 230 25% 7%;
+    --sidebar-accent: 230 15% 18%;
+    --sidebar-accent-foreground: 210 40% 96%;
+    --sidebar-border: 230 15% 20%;
+    --sidebar-ring: 45 100% 50%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground font-body antialiased;
+  }
+
+  h1,
+  h2,
+  h3,
+  h4,
+  h5,
+  h6 {
+    font-family: 'Orbitron', sans-serif;
+  }
+}
+
+@layer utilities {
+  .font-display {
+    font-family: 'Orbitron', sans-serif;
+  }
+
+  .font-body {
+    font-family: 'Rajdhani', sans-serif;
+  }
+
+  .text-glow-yellow {
+    text-shadow: 0 0 10px hsl(var(--neon-yellow) / 0.6), 0 0 30px hsl(var(--neon-yellow) / 0.3);
+  }
+
+  .text-glow-green {
+    text-shadow: 0 0 10px hsl(var(--neon-yellow) / 0.6), 0 0 30px hsl(var(--neon-yellow) / 0.3);
+  }
+
+  .text-glow-purple {
+    text-shadow: 0 0 10px hsl(var(--neon-purple) / 0.6), 0 0 30px hsl(var(--neon-purple) / 0.3);
+  }
+
+  .box-glow-yellow {
+    box-shadow: 0 0 15px hsl(var(--neon-yellow) / 0.3), 0 0 45px hsl(var(--neon-yellow) / 0.1);
+  }
+
+  .box-glow-green {
+    box-shadow: 0 0 15px hsl(var(--neon-yellow) / 0.3), 0 0 45px hsl(var(--neon-yellow) / 0.1);
+  }
+
+  .box-glow-purple {
+    box-shadow: 0 0 15px hsl(var(--neon-purple) / 0.3), 0 0 45px hsl(var(--neon-purple) / 0.1);
+  }
+
+  .gradient-gaming {
+    background: linear-gradient(135deg, hsl(var(--neon-yellow)), hsl(var(--neon-blue)));
+  }
+}
