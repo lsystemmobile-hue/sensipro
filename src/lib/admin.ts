@@ -61,13 +61,18 @@ export const createUserAccount = async (username: string, password: string, expi
         if (authError) throw authError;
         if (!authData.user) throw new Error('Falha ao criar usuário de autenticação');
 
-        // 2. Update expiration date if it differs from the default 30 days
+        // 2. Ensure profile exists and set expiration date
         // Note: The trigger already sets it to NOW() + 30 days.
-        // If the provided expiresAt is significantly different, we update it.
+        // We use upsert to avoid race conditions with the database trigger.
         const { error: profileError } = await supabase
             .from('users')
-            .update({ subscription_expires_at: expiresAt })
-            .eq('id', authData.user.id);
+            .upsert({
+                id: authData.user.id,
+                email,
+                username,
+                subscription_status: 'active',
+                subscription_expires_at: expiresAt
+            });
 
         if (profileError) throw profileError;
 

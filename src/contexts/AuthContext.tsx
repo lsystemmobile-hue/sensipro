@@ -12,6 +12,11 @@ interface User {
   isAdmin: boolean;
 }
 
+// Module-level cache for the public IP to be immediate and survive re-renders
+let ipCache: string | null = null;
+let isIpFetching = false;
+let ipPromise: Promise<string | null> | null = null;
+
 interface AuthContextType {
   user: User | null;
   session: Session | null;
@@ -33,36 +38,42 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [loading, setLoading] = useState(true);
   const [isIpBlocked, setIsIpBlocked] = useState(false);
 
-  // Global cache for the public IP
-  const [cachedIp, setCachedIp] = useState<string | null>(null);
-
   const getPublicIP = async () => {
-    if (cachedIp) return cachedIp;
+    if (ipCache) return ipCache;
+    if (isIpFetching) return ipPromise;
 
-    try {
-      // Create a promise that rejects after 2.5 seconds
-      const timeout = new Promise<null>((_, reject) =>
-        setTimeout(() => reject(new Error('IP fetch timeout')), 2500)
-      );
+    isIpFetching = true;
+    ipPromise = (async () => {
+      try {
+        const timeout = new Promise<null>((_, reject) =>
+          setTimeout(() => reject(new Error('IP fetch timeout')), 2500)
+        );
 
-      const fetchIp = (async () => {
-        const response = await fetch('https://api64.ipify.org?format=json');
-        const data = await response.json();
-        return data.ip as string;
-      })();
+        const fetchIp = (async () => {
+          const response = await fetch('https://api64.ipify.org?format=json');
+          if (!response.ok) throw new Error('IP service error');
+          const data = await response.json();
+          return data.ip as string;
+        })();
 
-      const ip = await Promise.race([fetchIp, timeout]);
-      if (ip) setCachedIp(ip);
-      return ip;
-    } catch (error) {
-      console.error('Error fetching IP:', error);
-      return null;
-    }
+        const ip = await Promise.race([fetchIp, timeout]);
+        if (ip) ipCache = ip;
+        return ip;
+      } catch (error) {
+        console.error('Error fetching IP:', error);
+        return null;
+      } finally {
+        isIpFetching = false;
+      }
+    })();
+
+    return ipPromise;
   };
 
   const fetchUserProfile = useCallback(async (userId: string) => {
     try {
       // Parallelize IP fetch and user profile fetch
+      // We use maybeSingle() to avoid erroring if profile is not yet created
       const [currentIp, { data, error }] = await Promise.all([
         getPublicIP(),
         supabase
@@ -72,7 +83,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           .maybeSingle()
       ]);
 
-      if (error) throw error;
+      if (error) {
+        console.error('Supabase profile fetch error:', error);
+      }
 
       if (data) {
         // IP Protection Logic
@@ -101,26 +114,30 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         });
       } else {
         // Fallback for missing profile
+        // This is critical if the trigger is slow or failed
         const { data: { session } } = await supabase.auth.getSession();
         const email = session?.user?.email;
         const isActuallyAdmin = email === 'admin@sensipro.com' || email === 'admin@game-hub.local';
 
-        if (isActuallyAdmin) {
-          setUser({
-            id: userId,
-            email: email || '',
-            username: 'Admin',
-            subscriptionStatus: 'active',
-            subscriptionExpiresAt: null,
-            allowedIp: null,
-            isAdmin: true,
-          });
-        } else {
-          console.warn('User profile not found in public.users table.');
+        setUser({
+          id: userId,
+          email: email || '',
+          username: session?.user?.user_metadata?.username || 'User',
+          subscriptionStatus: 'active', // Assume active for newly created users
+          subscriptionExpiresAt: null,
+          allowedIp: null,
+          isAdmin: isActuallyAdmin,
+        });
+
+        if (!isActuallyAdmin) {
+          console.warn('User profile not found in public.users table. Using fallback.');
         }
       }
     } catch (error) {
-      console.error('Error fetching user profile:', error);
+      console.error('Error in fetchUserProfile:', error);
+      // Ensure we don't block the UI if something goes wrong
+    } finally {
+      setLoading(false);
     }
   }, []);
 
@@ -143,8 +160,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         await fetchUserProfile(session.user.id);
       } else {
         setUser(null);
+        setLoading(false);
       }
-      setLoading(false);
     });
 
     return () => subscription.unsubscribe();
