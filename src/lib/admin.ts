@@ -44,6 +44,9 @@ export const createUserAccount = async (username: string, password: string, expi
     const email = username === 'admin' ? 'admin@sensipro.com' : `${username}@game-hub.local`;
 
     try {
+        // Prevenir registro de IP automático durante a criação pelo admin
+        localStorage.setItem('skipIpRegistration', 'true');
+
         // 1. Salvar sessão atual do admin ANTES de criar o usuário
         const { data: { session: adminSession } } = await supabase.auth.getSession();
 
@@ -103,6 +106,8 @@ export const createUserAccount = async (username: string, password: string, expi
         return { success: true, userId: authData.user.id };
     } catch (error: any) {
         throw new Error(error.message || 'Erro ao criar usuário');
+    } finally {
+        localStorage.removeItem('skipIpRegistration');
     }
 };
 

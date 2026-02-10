@@ -89,7 +89,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
       if (data) {
         // IP Protection Logic
-        if (!data.allowed_ip && currentIp) {
+        // CRITICAL: Only auto-register the IP if we are on the login page.
+        // This prevents the admin's IP from being registered to a new user 
+        // during the creation process in the Admin Panel.
+        const isLoginPage = window.location.pathname === '/login';
+        const skipIpRegistration = localStorage.getItem('skipIpRegistration') === 'true';
+
+        if (!data.allowed_ip && currentIp && isLoginPage && !skipIpRegistration) {
           // First login, lock to this IP
           await supabase
             .from('users')
