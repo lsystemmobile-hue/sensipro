@@ -44,25 +44,30 @@ export const createUserAccount = async (username: string, password: string, expi
     const email = username === 'admin' ? 'admin@sensipro.com' : `${username}@game-hub.local`;
 
     try {
-        // 1. Create Auth user
+        // 1. Create Auth user with metadata
+        // The trigger 'on_auth_user_created' will handle the profile creation automatically
+        // and set the expiration to 30 days.
+        // We might want to update the profile afterwards if we need a specific expiration.
         const { data: authData, error: authError } = await supabase.auth.signUp({
             email,
             password,
+            options: {
+                data: {
+                    username: username
+                }
+            }
         });
 
         if (authError) throw authError;
         if (!authData.user) throw new Error('Falha ao criar usuário de autenticação');
 
-        // 2. Create user profile
+        // 2. Update expiration date if it differs from the default 30 days
+        // Note: The trigger already sets it to NOW() + 30 days.
+        // If the provided expiresAt is significantly different, we update it.
         const { error: profileError } = await supabase
             .from('users')
-            .insert({
-                id: authData.user.id,
-                email,
-                username,
-                subscription_status: 'active',
-                subscription_expires_at: expiresAt,
-            });
+            .update({ subscription_expires_at: expiresAt })
+            .eq('id', authData.user.id);
 
         if (profileError) throw profileError;
 

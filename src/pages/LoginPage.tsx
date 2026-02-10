@@ -100,6 +100,7 @@ export default function LoginPage() {
                   placeholder="Senha"
                   className="pl-10"
                   required
+                  autoComplete="current-password"
                 />
               </div>
               <div className="flex items-center space-x-2">

@@ -33,11 +33,27 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [loading, setLoading] = useState(true);
   const [isIpBlocked, setIsIpBlocked] = useState(false);
 
+  // Global cache for the public IP
+  const [cachedIp, setCachedIp] = useState<string | null>(null);
+
   const getPublicIP = async () => {
+    if (cachedIp) return cachedIp;
+
     try {
-      const response = await fetch('https://api64.ipify.org?format=json');
-      const data = await response.json();
-      return data.ip;
+      // Create a promise that rejects after 2.5 seconds
+      const timeout = new Promise<null>((_, reject) =>
+        setTimeout(() => reject(new Error('IP fetch timeout')), 2500)
+      );
+
+      const fetchIp = (async () => {
+        const response = await fetch('https://api64.ipify.org?format=json');
+        const data = await response.json();
+        return data.ip as string;
+      })();
+
+      const ip = await Promise.race([fetchIp, timeout]);
+      if (ip) setCachedIp(ip);
+      return ip;
     } catch (error) {
       console.error('Error fetching IP:', error);
       return null;
@@ -46,13 +62,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const fetchUserProfile = useCallback(async (userId: string) => {
     try {
-      const currentIp = await getPublicIP();
-
-      const { data, error } = await supabase
-        .from('users')
-        .select('*')
-        .eq('id', userId)
-        .maybeSingle();
+      // Parallelize IP fetch and user profile fetch
+      const [currentIp, { data, error }] = await Promise.all([
+        getPublicIP(),
+        supabase
+          .from('users')
+          .select('*')
+          .eq('id', userId)
+          .maybeSingle()
+      ]);
 
       if (error) throw error;
 
@@ -134,28 +152,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const signUp = useCallback(async (email: string, password: string, username: string) => {
     try {
-      // Create auth user
+      // Create auth user with username in metadata
+      // This allows the database trigger to automatically create the profile
       const { data: authData, error: authError } = await supabase.auth.signUp({
         email,
         password,
+        options: {
+          data: {
+            username: username
+          }
+        }
       });
 
       if (authError) throw authError;
-
-      if (authData.user) {
-        // Create user profile
-        const { error: profileError } = await supabase
-          .from('users')
-          .insert({
-            id: authData.user.id,
-            email,
-            username,
-            subscription_status: 'active',
-            subscription_expires_at: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(), // 30 days
-          });
-
-        if (profileError) throw profileError;
-      }
 
       return { success: true };
     } catch (error: any) {
