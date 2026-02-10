@@ -32,14 +32,27 @@ export const logVideoAccess = async (userId: string, videoId: string, action: 'v
     }
 };
 
-// Retorna URL pública direta do R2 (SEM proteções)
+// Retorna URL para reprodução. Suporta Bunny.net, YouTube e Cloudflare Stream
 export const getSignedVideoUrl = async (videoPath: string): Promise<{ url: string; token: string; username: string } | null> => {
-    const R2_PUBLIC_DOMAIN = 'pub-f101b1b931b6437482be3982c93b6e21.r2.dev';
-    const publicUrl = `https://${R2_PUBLIC_DOMAIN}/${videoPath}`;
+    const cleanPath = videoPath.trim();
 
-    return {
-        url: publicUrl,
-        token: '',
-        username: '',
-    };
+    // Se for uma URL completa (Bunny, YouTube, etc)
+    if (cleanPath.toLowerCase().startsWith('http')) {
+        return {
+            url: cleanPath,
+            token: '',
+            username: '',
+        };
+    }
+
+    // Se for apenas um ID (Cloudflare Stream ID)
+    if (!cleanPath.includes('/') && cleanPath.length > 20) {
+        return {
+            url: `https://customer-f101b1b931b6437482be3982c93b6e21.cloudflarestream.com/${cleanPath}/manifest/video.m3u8`,
+            token: '',
+            username: '',
+        };
+    }
+
+    return null;
 };

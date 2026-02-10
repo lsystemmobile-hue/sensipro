@@ -113,7 +113,7 @@ export default function DashboardPage() {
           </div>
         </header>
         <div className="container max-w-4xl mx-auto px-4 py-6">
-          <div className="rounded-xl overflow-hidden border border-border bg-secondary shadow-lg min-h-[300px] flex items-center justify-center">
+          <div className="rounded-xl overflow-hidden border border-border bg-black shadow-lg">
             {isUrlLoading ? (
               <div className="flex flex-col items-center gap-3">
                 <Loader2 className="h-8 w-8 animate-spin text-primary" />

@@ -9,6 +9,7 @@ import {
     createVideo,
     updateVideo,
     deleteVideo,
+    moveVideoOrder,
     UserProfile,
     Video
 } from '@/lib/admin';
@@ -34,7 +35,9 @@ import {
     Clock,
     FileVideo,
     Loader2,
-    ShieldOff
+    ShieldOff,
+    ChevronUp,
+    ChevronDown
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 
@@ -182,7 +185,7 @@ export default function AdminPage() {
             title: vTitle,
             description: vDesc,
             thumbnail_url: vThumb,
-            storage_path: vUrl,
+            storage_path: vUrl.trim(),
             duration: parseInt(vDuration) || 0,
             order: parseInt(vOrder) || 0,
             category: 'Tutorial', // Default category
@@ -205,14 +208,27 @@ export default function AdminPage() {
     };
 
     const handleDeleteVideoConfirm = async (id: string) => {
-        if (window.confirm('Excluir este vídeo permanentemente?')) {
+        if (window.confirm('Excluir este vídeo?')) {
             try {
                 await deleteVideo(id);
-                toast({ title: 'Vídeo removido.' });
                 refreshData();
+                toast({ title: 'Vídeo excluído com sucesso!' });
             } catch (err: any) {
-                toast({ title: 'Erro ao remover vídeo.', variant: 'destructive' });
+                toast({ title: 'Erro ao excluir vídeo', description: err.message, variant: 'destructive' });
             }
+        }
+    };
+
+    const handleMoveVideo = async (video: Video, direction: 'up' | 'down') => {
+        try {
+            await moveVideoOrder(video, direction);
+            refreshData();
+        } catch (err: any) {
+            toast({
+                title: 'Erro ao mover vídeo',
+                description: err.message,
+                variant: 'destructive'
+            });
         }
     };
 
@@ -467,6 +483,26 @@ export default function AdminPage() {
                                             <Button variant="destructive" size="icon" onClick={() => handleDeleteVideoConfirm(v.id)}>
                                                 <Trash2 className="h-4 w-4" />
                                             </Button>
+                                            <div className="flex flex-col gap-1 ml-2">
+                                                <Button
+                                                    variant="secondary"
+                                                    size="icon"
+                                                    className="h-8 w-8"
+                                                    onClick={() => handleMoveVideo(v, 'up')}
+                                                    title="Mover para Cima"
+                                                >
+                                                    <ChevronUp className="h-4 w-4" />
+                                                </Button>
+                                                <Button
+                                                    variant="secondary"
+                                                    size="icon"
+                                                    className="h-8 w-8"
+                                                    onClick={() => handleMoveVideo(v, 'down')}
+                                                    title="Mover para Baixo"
+                                                >
+                                                    <ChevronDown className="h-4 w-4" />
+                                                </Button>
+                                            </div>
                                         </div>
                                         <div className="absolute top-2 left-2">
                                             <Badge variant="secondary" className="bg-background/80 backdrop-blur-sm">#{v.order}</Badge>

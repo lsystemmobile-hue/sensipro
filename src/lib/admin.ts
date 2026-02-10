@@ -135,3 +135,44 @@ export const deleteVideo = async (id: string) => {
 
     if (error) throw error;
 };
+
+export const moveVideoOrder = async (video: Video, direction: 'up' | 'down') => {
+    // Busca todos os vídeos ordenados por ordem
+    const { data: allVideos, error: fetchError } = await supabase
+        .from('videos')
+        .select('*')
+        .order('order', { ascending: true });
+
+    if (fetchError || !allVideos) throw fetchError || new Error('Falha ao buscar vídeos');
+
+    const currentIndex = allVideos.findIndex(v => v.id === video.id);
+    if (currentIndex === -1) return;
+
+    let targetIndex = -1;
+    if (direction === 'up' && currentIndex > 0) {
+        targetIndex = currentIndex - 1;
+    } else if (direction === 'down' && currentIndex < allVideos.length - 1) {
+        targetIndex = currentIndex + 1;
+    }
+
+    if (targetIndex !== -1) {
+        const neighbor = allVideos[targetIndex];
+        const currentOrder = video.order;
+        const neighborOrder = neighbor.order;
+
+        // Troca as ordens no banco
+        const { error: err1 } = await supabase
+            .from('videos')
+            .update({ order: neighborOrder })
+            .eq('id', video.id);
+
+        if (err1) throw err1;
+
+        const { error: err2 } = await supabase
+            .from('videos')
+            .update({ order: currentOrder })
+            .eq('id', neighbor.id);
+
+        if (err2) throw err2;
+    }
+};
