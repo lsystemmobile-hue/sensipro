@@ -115,7 +115,10 @@ export default function DashboardPage() {
         <div className="container max-w-4xl mx-auto px-4 py-6">
           <div className="rounded-xl overflow-hidden border border-border bg-secondary shadow-lg min-h-[300px] flex items-center justify-center">
             {isUrlLoading ? (
-              <Loader2 className="h-8 w-8 animate-spin text-primary" />
+              <div className="flex flex-col items-center gap-3">
+                <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                <p className="text-sm text-muted-foreground">Preparando vídeo...</p>
+              </div>
             ) : selectedVideoUrl ? (
               <VideoPlayer
                 src={selectedVideoUrl}
@@ -123,9 +126,12 @@ export default function DashboardPage() {
                 thumbnail={selectedVideo.thumbnail_url || undefined}
               />
             ) : (
-              <div className="text-destructive flex flex-col items-center gap-2">
+              <div className="text-destructive flex flex-col items-center gap-3 p-4">
                 <Lock className="h-8 w-8" />
-                <span>Erro ao carregar vídeo. Tente novamente.</span>
+                <div className="text-center">
+                  <p className="font-semibold mb-1">Erro ao carregar vídeo</p>
+                  <p className="text-xs text-muted-foreground">Tente selecionar o vídeo novamente</p>
+                </div>
               </div>
             )}
           </div>

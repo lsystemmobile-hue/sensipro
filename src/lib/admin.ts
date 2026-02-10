@@ -44,10 +44,17 @@ export const createUserAccount = async (username: string, password: string, expi
     const email = username === 'admin' ? 'admin@sensipro.com' : `${username}@game-hub.local`;
 
     try {
-        // 1. Create Auth user with metadata
-        // The trigger 'on_auth_user_created' will handle the profile creation automatically
-        // and set the expiration to 30 days.
-        // We might want to update the profile afterwards if we need a specific expiration.
+        // 1. Salvar sessão atual do admin ANTES de criar o usuário
+        const { data: { session: adminSession } } = await supabase.auth.getSession();
+
+        if (!adminSession) {
+            throw new Error('Você precisa estar logado como admin para criar usuários');
+        }
+
+        console.log('Admin session saved:', adminSession.user.email);
+
+        // 2. Criar Auth user com metadata
+        // Nota: Isso vai fazer login automático com o novo usuário
         const { data: authData, error: authError } = await supabase.auth.signUp({
             email,
             password,
@@ -61,9 +68,10 @@ export const createUserAccount = async (username: string, password: string, expi
         if (authError) throw authError;
         if (!authData.user) throw new Error('Falha ao criar usuário de autenticação');
 
-        // 2. Ensure profile exists and set expiration date
-        // Note: The trigger already sets it to NOW() + 30 days.
-        // We use upsert to avoid race conditions with the database trigger.
+        console.log('New user created:', authData.user.email);
+
+        // 3. Criar/atualizar perfil do novo usuário
+        // Nota: A sessão atual agora é do novo usuário, não do admin
         const { error: profileError } = await supabase
             .from('users')
             .upsert({
@@ -75,6 +83,22 @@ export const createUserAccount = async (username: string, password: string, expi
             });
 
         if (profileError) throw profileError;
+
+        console.log('User profile created for:', username);
+
+        // 4. CRÍTICO: Restaurar sessão do admin imediatamente
+        const { error: restoreError } = await supabase.auth.setSession({
+            access_token: adminSession.access_token,
+            refresh_token: adminSession.refresh_token
+        });
+
+        if (restoreError) {
+            console.error('Erro ao restaurar sessão do admin:', restoreError);
+            // Mesmo com erro na restauração, o usuário foi criado com sucesso
+            throw new Error('Usuário criado, mas houve erro ao restaurar sua sessão. Faça login novamente.');
+        }
+
+        console.log('Admin session restored successfully');
 
         return { success: true, userId: authData.user.id };
     } catch (error: any) {
