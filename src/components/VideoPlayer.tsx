@@ -9,6 +9,7 @@ interface VideoPlayerProps {
 }
 
 type LoadingState = 'loading' | 'buffering' | 'ready' | 'error' | 'timeout';
+type NetworkSpeed = 'slow' | 'medium' | 'fast';
 
 export default function VideoPlayer({ src, title, thumbnail }: VideoPlayerProps) {
     const videoRef = useRef<HTMLVideoElement>(null);
@@ -17,6 +18,8 @@ export default function VideoPlayer({ src, title, thumbnail }: VideoPlayerProps)
     const [loadingState, setLoadingState] = useState<LoadingState>('loading');
     const [errorMessage, setErrorMessage] = useState<string>('');
     const [retryCount, setRetryCount] = useState(0);
+    const [bufferProgress, setBufferProgress] = useState(0);
+    const [networkSpeed, setNetworkSpeed] = useState<NetworkSpeed>('medium');
     const timeoutRef = useRef<NodeJS.Timeout | null>(null);
     const { user } = useAuth();
 
@@ -122,6 +125,18 @@ export default function VideoPlayer({ src, title, thumbnail }: VideoPlayerProps)
             console.log('Video download suspended');
         };
 
+        const handleProgress = () => {
+            if (video.buffered.length > 0) {
+                const buffered = video.buffered.end(video.buffered.length - 1);
+                const duration = video.duration;
+                if (duration > 0) {
+                    const progress = (buffered / duration) * 100;
+                    setBufferProgress(progress);
+                    console.log(`Buffer progress: ${progress.toFixed(1)}%`);
+                }
+            }
+        };
+
         // Attach event listeners
         video.addEventListener('loadstart', handleLoadStart);
         video.addEventListener('loadedmetadata', handleLoadedMetadata);
@@ -132,6 +147,7 @@ export default function VideoPlayer({ src, title, thumbnail }: VideoPlayerProps)
         video.addEventListener('error', handleError);
         video.addEventListener('stalled', handleStalled);
         video.addEventListener('suspend', handleSuspend);
+        video.addEventListener('progress', handleProgress);
 
         // Set video source
         video.src = src;
@@ -151,8 +167,43 @@ export default function VideoPlayer({ src, title, thumbnail }: VideoPlayerProps)
             video.removeEventListener('error', handleError);
             video.removeEventListener('stalled', handleStalled);
             video.removeEventListener('suspend', handleSuspend);
+            video.removeEventListener('progress', handleProgress);
         };
     }, [src, retryCount]);
+
+    // Detect network speed
+    useEffect(() => {
+        const connection = (navigator as any).connection || (navigator as any).mozConnection || (navigator as any).webkitConnection;
+        if (connection) {
+            const updateNetworkSpeed = () => {
+                const effectiveType = connection.effectiveType;
+                if (effectiveType === 'slow-2g' || effectiveType === '2g') {
+                    setNetworkSpeed('slow');
+                } else if (effectiveType === '3g') {
+                    setNetworkSpeed('medium');
+                } else {
+                    setNetworkSpeed('fast');
+                }
+                console.log(`Network speed detected: ${effectiveType}`);
+            };
+
+            updateNetworkSpeed();
+            connection.addEventListener('change', updateNetworkSpeed);
+
+            return () => connection.removeEventListener('change', updateNetworkSpeed);
+        }
+    }, []);
+
+    // Allow playback with minimal buffer (10%)
+    useEffect(() => {
+        if (bufferProgress >= 10 && loadingState === 'loading') {
+            console.log('Minimum buffer reached, ready to play');
+            setLoadingState('ready');
+            if (timeoutRef.current) {
+                clearTimeout(timeoutRef.current);
+            }
+        }
+    }, [bufferProgress, loadingState]);
 
     // Detectar DevTools (F12)
     useEffect(() => {
@@ -240,6 +291,7 @@ export default function VideoPlayer({ src, title, thumbnail }: VideoPlayerProps)
                 disableRemotePlayback
                 playsInline
                 preload="metadata"
+                crossOrigin="anonymous"
                 poster={generatedThumbnail}
                 onContextMenu={handleContextMenu}
                 style={{
@@ -253,9 +305,25 @@ export default function VideoPlayer({ src, title, thumbnail }: VideoPlayerProps)
                 <div className="absolute inset-0 flex items-center justify-center bg-black/60 backdrop-blur-sm">
                     <div className="flex flex-col items-center gap-3">
                         <Loader2 className="h-10 w-10 animate-spin text-primary" />
-                        <p className="text-sm text-white/80">
-                            {loadingState === 'loading' ? 'Carregando vídeo...' : 'Buffering...'}
-                        </p>
+                        <div className="text-center">
+                            <p className="text-sm text-white/80 mb-1">
+                                {loadingState === 'loading' ? 'Carregando vídeo...' : 'Buffering...'}
+                            </p>
+                            {bufferProgress > 0 && (
+                                <div className="space-y-2">
+                                    <div className="w-48 h-1.5 bg-white/20 rounded-full overflow-hidden">
+                                        <div
+                                            className="h-full bg-primary transition-all duration-300"
+                                            style={{ width: `${bufferProgress}%` }}
+                                        />
+                                    </div>
+                                    <p className="text-xs text-white/60">
+                                        {bufferProgress.toFixed(0)}% carregado
+                                        {networkSpeed === 'slow' && ' • Conexão lenta detectada'}
+                                    </p>
+                                </div>
+                            )}
+                        </div>
                     </div>
                 </div>
             )}
@@ -269,7 +337,12 @@ export default function VideoPlayer({ src, title, thumbnail }: VideoPlayerProps)
                             <h3 className="text-lg font-semibold text-white mb-2">
                                 {loadingState === 'timeout' ? 'Timeout' : 'Erro'}
                             </h3>
-                            <p className="text-sm text-white/70">{errorMessage}</p>
+                            <p className="text-sm text-white/70 mb-2">{errorMessage}</p>
+                            {networkSpeed === 'slow' && (
+                                <p className="text-xs text-yellow-400">
+                                    💡 Dica: Sua conexão está lenta. Tente em um local com melhor sinal.
+                                </p>
+                            )}
                         </div>
                         <button
                             onClick={handleRetry}
