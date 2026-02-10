@@ -88,6 +88,7 @@ export default function LoginPage() {
                   placeholder="Usuário"
                   className="pl-10"
                   required
+                  autoComplete="username"
                 />
               </div>
               <div className="relative">
