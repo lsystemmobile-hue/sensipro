@@ -32,11 +32,11 @@ export const logVideoAccess = async (userId: string, videoId: string, action: 'v
     }
 };
 
-// Retorna URL para reprodução. Suporta Bunny.net, YouTube e Cloudflare Stream
+// Retorna URL para reprodução. Suporta Bunny.net, YouTube e outras URLs diretas.
 export const getSignedVideoUrl = async (videoPath: string): Promise<{ url: string; token: string; username: string } | null> => {
     const cleanPath = videoPath.trim();
 
-    // Se for uma URL completa (Bunny, YouTube, etc)
+    // Se for uma URL completa (Bunny, YouTube, etc), retornamos ela mesma.
     if (cleanPath.toLowerCase().startsWith('http')) {
         return {
             url: cleanPath,
@@ -45,14 +45,9 @@ export const getSignedVideoUrl = async (videoPath: string): Promise<{ url: strin
         };
     }
 
-    // Se for apenas um ID (Cloudflare Stream ID)
-    if (!cleanPath.includes('/') && cleanPath.length > 20) {
-        return {
-            url: `https://customer-f101b1b931b6437482be3982c93b6e21.cloudflarestream.com/${cleanPath}/manifest/video.m3u8`,
-            token: '',
-            username: '',
-        };
-    }
+    // Nota: Suporte ao Cloudflare Stream foi removido em favor do Bunny.net
+    // Se o caminho não começar com http, assumimos que é uma URL incompleta
+    // ou um erro de configuração no banco de dados.
 
     return null;
 };
