@@ -37,7 +37,8 @@ import {
     Loader2,
     ShieldOff,
     ChevronUp,
-    ChevronDown
+    ChevronDown,
+    Copy
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 
@@ -90,27 +91,114 @@ export default function AdminPage() {
 
     if (!user || !isAdmin) return <Navigate to="/dashboard" />;
 
+    // Copy login info to clipboard with fallback method
+    const copyLoginInfo = (username: string, expiryDate: string | null, password?: string) => {
+        const appUrl = window.location.origin;
+
+        // Parse date correctly to avoid timezone issues
+        let formattedExpiry = 'Não definida';
+        if (expiryDate) {
+            const dateParts = expiryDate.split('T')[0].split('-');
+            const year = parseInt(dateParts[0]);
+            const month = parseInt(dateParts[1]) - 1; // Month is 0-indexed
+            const day = parseInt(dateParts[2]);
+            const localDate = new Date(year, month, day);
+            formattedExpiry = localDate.toLocaleDateString('pt-BR');
+        }
+
+        const message = password
+            ? `*Cliente SENSI PRO:* 🔐\n\n👤 *Usuário:* ${username}\n🔑 *Senha:* ${password}\n📆 *Válido até:* ${formattedExpiry}\n\nLINK: https://ffsensipro.vercel.app/login`
+            : `*Cliente SENSI PRO:* 🔐\n\n👤 *Usuário:* ${username}\n📆 *Válido até:* ${formattedExpiry}\n\nLINK: https://ffsensipro.vercel.app/login\n\n_Nota: Senha não disponível. Se necessário, redefina a senha do usuário._`;
+
+        // Try modern clipboard API first
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+            navigator.clipboard.writeText(message)
+                .then(() => {
+                    toast({
+                        title: '✅ Copiado!',
+                        description: password ? 'Credenciais copiadas para a área de transferência' : 'Informações copiadas (sem senha)'
+                    });
+                })
+                .catch((err) => {
+                    console.error('Clipboard error:', err);
+                    // Fallback to textarea method
+                    fallbackCopyTextToClipboard(message, password);
+                });
+        } else {
+            // Fallback for older browsers
+            fallbackCopyTextToClipboard(message, password);
+        }
+    };
+
+    // Fallback copy method using textarea
+    const fallbackCopyTextToClipboard = (text: string, hasPassword?: string) => {
+        const textArea = document.createElement('textarea');
+        textArea.value = text;
+        textArea.style.position = 'fixed';
+        textArea.style.top = '0';
+        textArea.style.left = '0';
+        textArea.style.width = '2em';
+        textArea.style.height = '2em';
+        textArea.style.padding = '0';
+        textArea.style.border = 'none';
+        textArea.style.outline = 'none';
+        textArea.style.boxShadow = 'none';
+        textArea.style.background = 'transparent';
+        document.body.appendChild(textArea);
+        textArea.focus();
+        textArea.select();
+
+        try {
+            const successful = document.execCommand('copy');
+            if (successful) {
+                toast({
+                    title: '✅ Copiado!',
+                    description: hasPassword ? 'Credenciais copiadas para a área de transferência' : 'Informações copiadas (sem senha)'
+                });
+            } else {
+                toast({
+                    title: 'Erro ao copiar',
+                    description: 'Não foi possível copiar para a área de transferência',
+                    variant: 'destructive'
+                });
+            }
+        } catch (err) {
+            console.error('Fallback copy error:', err);
+            toast({
+                title: 'Erro ao copiar',
+                description: 'Não foi possível copiar para a área de transferência',
+                variant: 'destructive'
+            });
+        }
+
+        document.body.removeChild(textArea);
+    };
+
     // User Handlers
     const openCreateUser = () => {
         setEditUser(null);
         setFormUsername('');
-        setFormPassword('');
-        const defaultExpires = new Date();
-        defaultExpires.setDate(defaultExpires.getDate() + 30);
-        setFormExpires(defaultExpires.toISOString().split('T')[0]);
+        // Generate automatic password: sensipro + 2 random digits (00-99)
+        const randomNum = Math.floor(Math.random() * 100).toString().padStart(2, '0');
+        setFormPassword(`sensipro${randomNum}`);
+        // Set expiry to same day next month (avoiding timezone issues)
+        const today = new Date();
+        const nextMonth = new Date(today.getFullYear(), today.getMonth() + 1, today.getDate());
+        setFormExpires(nextMonth.toISOString().split('T')[0]);
         setUserFormOpen(true);
     };
 
     const openEditUser = (u: UserProfile) => {
         setEditUser(u);
         setFormUsername(u.username);
-        setFormPassword(''); // Don't show/edit password here for security/simplicity
+        // Don't change password - keep it empty as we can't update auth password from client
+        setFormPassword('');
         setFormExpires(u.subscription_expires_at?.split('T')[0] || '');
         setUserFormOpen(true);
     };
 
     const handleSaveUser = async () => {
-        if (!formUsername || (!editUser && !formPassword) || !formExpires) {
+        if (!formUsername || !formPassword || !formExpires) {
             toast({ title: 'Preencha todos os campos.', variant: 'destructive' });
             return;
         }
@@ -119,16 +207,28 @@ export default function AdminPage() {
             const expiresDate = new Date(formExpires).toISOString();
 
             if (editUser) {
-                // Update
+                // Update profile
                 await updateUserProfile(editUser.id, {
                     username: formUsername,
                     subscription_expires_at: expiresDate
                 });
-                toast({ title: 'Usuário atualizado!' });
+
+                toast({
+                    title: 'Usuário atualizado!',
+                    description: 'Perfil atualizado. Nota: a senha de autenticação não pode ser alterada via admin client.'
+                });
+
+                // Copy new credentials info (though password won't actually change in auth)
+                copyLoginInfo(formUsername, expiresDate, formPassword);
             } else {
                 // Create
                 await createUserAccount(formUsername, formPassword, expiresDate);
-                toast({ title: 'Usuário criado com sucesso!' });
+                toast({
+                    title: 'Usuário criado com sucesso!',
+                    description: 'As credenciais foram copiadas para a área de transferência'
+                });
+                // Copy credentials immediately after creation
+                copyLoginInfo(formUsername, expiresDate, formPassword);
             }
 
             setUserFormOpen(false);
@@ -234,7 +334,7 @@ export default function AdminPage() {
 
     return (
         <div className="min-h-screen bg-background">
-            <header className="sticky top-0 z-50 bg-background/80 backdrop-blur-lg border-b border-border">
+            <header className="sticky top-0 z-50 bg-background/95 backdrop-blur-sm border-b border-border">
                 <div className="container flex items-center justify-between h-14 px-4">
                     <button onClick={() => navigate('/dashboard')} className="flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground transition-colors">
                         <ArrowLeft className="h-4 w-4" /> Dashboard
@@ -249,7 +349,7 @@ export default function AdminPage() {
 
             <div className="container max-w-4xl mx-auto px-4 py-6">
                 <Tabs defaultValue="users" className="w-full">
-                    <TabsList className="grid w-full grid-cols-2 mb-8">
+                    <TabsList className="grid w-full grid-cols-2 mb-6">
                         <TabsTrigger value="users" className="flex items-center gap-2">
                             <Users className="h-4 w-4" /> Usuários
                         </TabsTrigger>
@@ -259,11 +359,8 @@ export default function AdminPage() {
                     </TabsList>
 
                     <TabsContent value="users">
-                        <div className="flex items-center justify-between mb-6">
-                            <div className="flex items-center gap-2">
-                                <Users className="h-5 w-5 text-primary" />
-                                <h1 className="font-display text-xl font-bold">Gerenciar Usuários</h1>
-                            </div>
+                        <div className="flex items-center justify-between mb-4">
+                            <h2 className="font-display text-lg font-bold">Gerenciar Usuários</h2>
                             <Dialog open={userFormOpen} onOpenChange={setUserFormOpen}>
                                 <DialogTrigger asChild>
                                     <Button size="sm" onClick={openCreateUser}>
@@ -289,14 +386,14 @@ export default function AdminPage() {
                                         </div>
                                         {!editUser && (
                                             <div className="space-y-1">
-                                                <Label htmlFor="user-password">Senha</Label>
+                                                <Label htmlFor="user-password">Senha (Gerada Automaticamente)</Label>
                                                 <Input
                                                     id="user-password"
-                                                    type="password"
+                                                    type="text"
                                                     value={formPassword}
                                                     onChange={e => setFormPassword(e.target.value)}
-                                                    placeholder="••••••••"
-                                                    className="h-11"
+                                                    placeholder="sensipro00"
+                                                    className="h-11 font-mono"
                                                 />
                                             </div>
                                         )}
@@ -346,7 +443,15 @@ export default function AdminPage() {
                                                         <span className="text-[10px] text-muted-foreground">{u.email}</span>
                                                     </div>
                                                     <p className="text-xs text-muted-foreground mt-1">
-                                                        Expira: {u.subscription_expires_at ? new Date(u.subscription_expires_at).toLocaleDateString('pt-BR') : 'Sem data'}
+                                                        Expira: {u.subscription_expires_at ? (() => {
+                                                            // Parse date correctly to avoid timezone issues
+                                                            const dateParts = u.subscription_expires_at.split('T')[0].split('-');
+                                                            const year = parseInt(dateParts[0]);
+                                                            const month = parseInt(dateParts[1]) - 1; // Month is 0-indexed
+                                                            const day = parseInt(dateParts[2]);
+                                                            const localDate = new Date(year, month, day);
+                                                            return localDate.toLocaleDateString('pt-BR');
+                                                        })() : 'Sem data'}
                                                     </p>
                                                     {u.allowed_ip && (
                                                         <div className="flex items-center gap-1 mt-1">
@@ -357,6 +462,15 @@ export default function AdminPage() {
                                                     )}
                                                 </div>
                                                 <div className="flex items-center gap-1 shrink-0">
+                                                    <Button
+                                                        variant="ghost"
+                                                        size="icon"
+                                                        className="h-8 w-8 text-green-600 hover:text-green-700"
+                                                        onClick={() => copyLoginInfo(u.username, u.subscription_expires_at)}
+                                                        title="Copiar dados de login"
+                                                    >
+                                                        <Copy className="h-3.5 w-3.5" />
+                                                    </Button>
                                                     {u.allowed_ip && (
                                                         <Button
                                                             variant="ghost"
@@ -412,11 +526,8 @@ export default function AdminPage() {
                     </TabsContent>
 
                     <TabsContent value="videos">
-                        <div className="flex items-center justify-between mb-6">
-                            <div className="flex items-center gap-2">
-                                <VideoIcon className="h-5 w-5 text-primary" />
-                                <h1 className="font-display text-xl font-bold">Gerenciar Vídeos</h1>
-                            </div>
+                        <div className="flex items-center justify-between mb-4">
+                            <h2 className="font-display text-lg font-bold">Gerenciar Vídeos</h2>
                             <Dialog open={videoDialogOpen} onOpenChange={setVideoDialogOpen}>
                                 <DialogTrigger asChild>
                                     <Button size="sm" onClick={openCreateVideo}>

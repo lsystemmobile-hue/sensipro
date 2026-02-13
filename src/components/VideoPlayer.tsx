@@ -187,28 +187,21 @@ export default function VideoPlayer({ src, title, thumbnail }: VideoPlayerProps)
                         {/* Top Bar */}
                         <div className="flex justify-between items-start">
                             <div className="flex flex-col gap-1">
-                                <h3 className="text-white text-sm font-bold tracking-tight drop-shadow-lg truncate max-w-[250px] md:max-w-md">{title}</h3>
-                                <div className="flex gap-2">
-                                    <span className={cn(
-                                        "px-2 py-0.5 text-[8px] font-black rounded-full border",
-                                        isHls ? "bg-primary/20 text-primary border-primary/30" : "bg-white/10 text-white/50 border-white/10"
-                                    )}>
-                                        {isHls ? 'HLS STREAM' : 'STANDARD MP4'}
-                                    </span>
-                                </div>
+                                <h3 className="text-white text-sm font-semibold truncate max-w-[250px] md:max-w-md">{title}</h3>
+                                <span className="px-2 py-0.5 text-[9px] font-semibold rounded bg-white/10 text-white/70 w-fit">
+                                    {isHls ? 'HLS' : 'MP4'}
+                                </span>
                             </div>
                         </div>
 
                         {/* Center Play Button */}
                         <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                            <motion.button
-                                whileHover={{ scale: 1.1 }}
-                                whileTap={{ scale: 0.9 }}
+                            <button
                                 onClick={(e) => { e.stopPropagation(); togglePlay(); }}
-                                className="w-14 h-14 bg-primary rounded-full flex items-center justify-center text-black pointer-events-auto shadow-[0_0_30px_rgba(255,255,255,0.1)]"
+                                className="w-12 h-12 bg-primary rounded-full flex items-center justify-center text-black pointer-events-auto hover:scale-110 transition-transform"
                             >
-                                {isPlaying ? <Pause className="fill-current w-5 h-5" /> : <Play className="fill-current w-5 h-5 ml-1" />}
-                            </motion.button>
+                                {isPlaying ? <Pause className="fill-current w-5 h-5" /> : <Play className="fill-current w-5 h-5 ml-0.5" />}
+                            </button>
                         </div>
 
                         {/* Bottom Bar */}

@@ -25,8 +25,8 @@ export default function ProtectedRoute({ children, requireAdmin = false }: Prote
         return <Navigate to="/login" replace />;
     }
 
-    // Check subscription status
-    if (user?.subscriptionStatus !== 'active') {
+    // Check subscription status and expiration date
+    if (user?.subscriptionStatus !== 'active' || (user?.subscriptionExpiresAt && new Date(user.subscriptionExpiresAt) < new Date())) {
         return <Navigate to="/subscription-expired" replace />;
     }
 

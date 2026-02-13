@@ -38,6 +38,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [loading, setLoading] = useState(true);
   const [isIpBlocked, setIsIpBlocked] = useState(false);
 
+  // Helper function to check if subscription has expired
+  const isSubscriptionExpired = (expiresAt: string | null): boolean => {
+    if (!expiresAt) return false; // No expiration date = lifetime access
+    return new Date(expiresAt) < new Date();
+  };
+
   const getPublicIP = async () => {
     if (ipCache) return ipCache;
     if (isIpFetching) return ipPromise;
@@ -109,11 +115,23 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
         setIsIpBlocked(!isActuallyAdmin && isBlocked);
 
+        // Auto-update subscription status if date has expired
+        let currentStatus = data.subscription_status;
+        if (currentStatus === 'active' && isSubscriptionExpired(data.subscription_expires_at) && !isActuallyAdmin) {
+          currentStatus = 'expired';
+          // Update in database asynchronously (fire and forget)
+          void supabase
+            .from('users')
+            .update({ subscription_status: 'expired' })
+            .eq('id', userId)
+            .then(() => console.log('Auto-updated expired subscription status'));
+        }
+
         setUser({
           id: data.id,
           email: data.email,
           username: data.username,
-          subscriptionStatus: data.subscription_status,
+          subscriptionStatus: currentStatus,
           subscriptionExpiresAt: data.subscription_expires_at,
           allowedIp: data.allowed_ip,
           isAdmin: isActuallyAdmin,
@@ -267,7 +285,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       value={{
         user,
         session,
-        isAuthenticated: !!session && !!user && user.subscriptionStatus === 'active' && !isIpBlocked,
+        isAuthenticated: !!session && !!user && user.subscriptionStatus === 'active' && !isSubscriptionExpired(user.subscriptionExpiresAt) && !isIpBlocked,
         isIpBlocked,
         isAdmin: user?.isAdmin || false,
         loading,
