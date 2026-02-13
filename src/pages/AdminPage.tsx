@@ -204,7 +204,13 @@ export default function AdminPage() {
         }
 
         try {
-            const expiresDate = new Date(formExpires).toISOString();
+            // Parse date correctly to avoid timezone issues when saving
+            const dateParts = formExpires.split('-');
+            const year = parseInt(dateParts[0]);
+            const month = parseInt(dateParts[1]) - 1; // Month is 0-indexed
+            const day = parseInt(dateParts[2]);
+            // Create date at noon UTC to avoid timezone issues
+            const expiresDate = new Date(Date.UTC(year, month, day, 12, 0, 0)).toISOString();
 
             if (editUser) {
                 // Update profile
